@@ -1,0 +1,5 @@
+*.engine.*
+
+Examples/lizard_test
+build/
+lib/

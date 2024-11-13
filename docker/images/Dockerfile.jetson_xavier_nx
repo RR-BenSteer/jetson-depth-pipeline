@@ -1,0 +1,133 @@
+#FROM dustynv/ros:humble-desktop-l4t-r35.3.1
+# FROM dustynv/ros:humble-desktop-pytorch-l4t-r35.4.1
+FROM isaac_ros_dev-aarch64:latest
+
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
+    && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ focal main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+ENV OPENCV_VERSION="4.5.1"
+
+WORKDIR /opt/build
+
+RUN apt-get update -y && apt-get upgrade -y && apt install -y \
+        '~nros-humble-rqt*' \ 
+        vim \
+        x11-apps \
+        inetutils-ping \
+        tmux \
+        build-essential \
+        cmake \
+        git \
+        wget \ 
+        unzip \
+        yasm \
+        pkg-config \
+        libswscale-dev \
+        libtbb2 \
+        libtbb-dev \
+        libjpeg-dev \
+        libpng-dev \
+        libtiff-dev \
+        libopenjp2-7-dev \
+        libavformat-dev \
+        libpq-dev \
+        libopenblas-dev \
+        libxine2-dev \
+        libglew-dev \
+        libtiff5-dev \
+        zlib1g-dev \
+        libavcodec-dev \
+        libavutil-dev \
+        libpostproc-dev \
+        libeigen3-dev \
+        libgtk2.0-dev \
+        libcufft-11-4 \
+        libcufft-dev-11-4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# OpenCV
+RUN cd /opt/ &&\
+    # Download and unzip OpenCV and opencv_contrib and delte zip files
+    wget https://github.com/opencv/opencv/archive/$OPENCV_VERSION.zip &&\
+    unzip $OPENCV_VERSION.zip &&\
+    rm $OPENCV_VERSION.zip &&\
+    wget https://github.com/opencv/opencv_contrib/archive/$OPENCV_VERSION.zip &&\
+    unzip ${OPENCV_VERSION}.zip &&\
+    rm ${OPENCV_VERSION}.zip &&\
+    # Create build folder and switch to it
+    mkdir /opt/opencv-${OPENCV_VERSION}/build && cd /opt/opencv-${OPENCV_VERSION}/build &&\
+    # Cmake configure
+    cmake \
+        -DOPENCV_EXTRA_MODULES_PATH=/opt/opencv_contrib-${OPENCV_VERSION}/modules \
+        -DWITH_CUDA=ON \
+        -DCUDA_ARCH_BIN=5.3,6.2,7.2,8.7 \
+        -DCMAKE_BUILD_TYPE=RELEASE \
+        # Install path will be /usr/local/lib (lib is implicit)
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        .. &&\
+    # Make
+    make -j"$(nproc)" && \
+    # Install to /usr/local/lib
+    make install && \
+    ldconfig &&\
+    # Remove OpenCV sources and build folder
+    rm -rf /opt/opencv-${OPENCV_VERSION} && rm -rf /opt/opencv_contrib-${OPENCV_VERSION}
+
+# Boost with Python 3
+RUN cd /tmp && wget -c 'https://sourceforge.net/projects/boost/files/boost/1.73.0/boost_1_73_0.tar.bz2'\
+    && tar -xvf boost_1_73_0.tar.bz2 \
+    && cd boost_1_73_0 \
+    && bash bootstrap.sh --with-python=python3 \
+    && ./b2 && ./b2 install \
+    && cd / && rm -rf /tmp/boost_1_73_0*
+    
+# Eigen3
+RUN cd /tmp && wget -c "https://gitlab.com/libeigen/eigen/-/archive/3.3.2/eigen-3.3.2.tar.bz2" \
+    && tar xvf eigen-3.3.2.tar.bz2 \
+    && cd eigen-3.3.2 && mkdir build && cd build && cmake .. \
+    && make -j$(nproc) && make install \
+    && cd / && rm -rf /tmp/eigen-3.3.2 && rm /tmp/eigen-3.3.2.tar.bz2   
+
+# Pangolin
+RUN cd /tmp && git clone https://github.com/stevenlovegrove/Pangolin.git \
+    && cd Pangolin && git checkout v0.6 && mkdir build && cd build && cmake .. \
+    && make -j$(nproc) && make install \
+    && cd / && rm -rf /tmp/Pangolin
+
+# Arguments for user creation (can be passed at build time)
+# ARG USERNAME=docker
+# ARG USER_ID=1000
+# ARG GROUP_ID=1000
+
+# Install sudo and other necessary packages
+# RUN apt-get update && apt-get install -y sudo
+
+# Create a user with the specified UID and GID
+# RUN groupadd -g $GROUP_ID $USERNAME && \
+#     useradd -m -u $USER_ID -g $GROUP_ID -s /bin/bash $USERNAME
+
+# Add the user to the sudoers file with full root access without a password
+RUN echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+RUN usermod -aG sudo,video,i2c "$USERNAME"
+
+# Set the default user to the new user
+USER $USERNAME
+
+RUN pip install \
+    lcm \
+    pymap3d \
+    skymarshal \
+    scipy
+
+# Note it is easier to just build and edit for errors locally
+# and point to mounted python files in docker
+# ACFR LCM Types Python Package
+# ADD thirdparty/acfr-lcm-types /tmp/acfr-lcm-types
+# WORKDIR /tmp/acfr-lcm-types
+# RUN python3 setup.py build
+# RUN pip install .
+
+# COPY entrypoints/ros_humble_entrypoint.sh /ros_entrypoint.sh

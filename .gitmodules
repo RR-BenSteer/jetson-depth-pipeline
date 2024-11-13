@@ -1,0 +1,6 @@
+[submodule "Thirdparty/CudaSift"]
+	path = Thirdparty/CudaSift
+	url = git@github.com:gidobot/CudaSift.git
+[submodule "Thirdparty/tensorrt-cpp-api"]
+	path = Thirdparty/tensorrt-cpp-api
+	url = git@github.com:gidobot/tensorrt-cpp-api.git
