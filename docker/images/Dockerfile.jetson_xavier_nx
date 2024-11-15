@@ -7,7 +7,7 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV OPENCV_VERSION="4.5.1"
+ENV OPENCV_VERSION="4.10.0"
 
 WORKDIR /opt/build
 
@@ -62,7 +62,7 @@ RUN cd /opt/ &&\
     cmake \
         -DOPENCV_EXTRA_MODULES_PATH=/opt/opencv_contrib-${OPENCV_VERSION}/modules \
         -DWITH_CUDA=ON \
-        -DCUDA_ARCH_BIN=5.3,6.2,7.2,8.7 \
+        -DCUDA_ARCH_BIN=7.2 \
         -DCMAKE_BUILD_TYPE=RELEASE \
         # Install path will be /usr/local/lib (lib is implicit)
         -DCMAKE_INSTALL_PREFIX=/usr/local \

@@ -7,11 +7,11 @@ namespace depthpipe
 
   DepthPipe::DepthPipe(const string &str_setting_path) {
       f_settings.reset(new cv::FileStorage(str_setting_path.c_str(), cv::FileStorage::READ));
-      n_features = (*f_settings)["Extractor.nFeatures"].operator int();
-      focal_length = (*f_settings)["Stereo.f"].real();
-      baseline = (*f_settings)["Stereo.baseline"].real();
-      min_depth = (*f_settings)["Depth.min"].real();
-      max_depth = (*f_settings)["Depth.max"].real();
+      focal_length  = (*f_settings)["Stereo.f"].real();
+      baseline      = (*f_settings)["Stereo.baseline"].real();
+      n_features    = (*f_settings)["Extractor.nFeatures"].operator int();
+      min_depth     = (*f_settings)["Depth.min"].real();
+      max_depth     = (*f_settings)["Depth.max"].real();
 
       // CudaSift init
       InitCuda(0);
@@ -71,6 +71,7 @@ namespace depthpipe
 
     // compute metric depth by scale and shift
     ArrayXXf estimate = Map<ArrayXXf>(relDepthMap.ptr<float>(), relDepthMap.rows, relDepthMap.cols);
+    // estimate = estimate.inverse(); // invert to metric depth
     ArrayXXf target   = Map<ArrayXXf>(sparseDepthMap.ptr<float>(), sparseDepthMap.rows, sparseDepthMap.cols);
     ArrayXXf valid    = Map<ArrayXXf>(sparseDepthMask.ptr<float>(), sparseDepthMask.rows, sparseDepthMask.cols);
 
@@ -86,8 +87,9 @@ namespace depthpipe
     time_point t6 = std::chrono::steady_clock::now();
 
     // debug error checking
-    float error = (valid.select(output, 0.0f) - valid.select(target.inverse(), 0.0f)).abs().sum() / valid.sum(); // inverted depth
-    cout << "mean depth error: " << error << endl;
+    // float error = (valid.select(output, 0.0f) - valid.select(target.inverse(), 0.0f)).abs().sum() / valid.sum(); // inverted depth
+    // float error = (valid.select(output, 0.0f) - valid.select(target, 0.0f)).abs().sum() / valid.sum();
+    // cout << "mean depth error: " << error << endl;
 
     // performance timers
     double text = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
@@ -101,21 +103,21 @@ namespace depthpipe
     cout << "Total time: " << ttot << endl;
     cout << "extract: " << text << ", match: " << tmatch << ", filter: " << tfilt << ", relative depth: " << tdepth << ", metric depth: " << tdepthmetric << endl;
 
-    // plot depth image
-    double minVal, maxVal;
-    cv::minMaxLoc(depthMap, &minVal, &maxVal);
-    cout << "Max depth: " << maxVal << ", Min depth: " << minVal << endl;
-    // cv::Mat depthViz = sparseDepthMap.clone() * 255.0 / maxVal;
-    cv::Mat depthViz = depthMap.clone() * 255.0 / maxVal;
-    depthViz.convertTo(depthViz, CV_8U);
-    cv::Mat depthColor;
-    cv::applyColorMap(depthViz, depthColor, cv::COLORMAP_JET);
-    cv::namedWindow("Depth", cv::WINDOW_NORMAL);
-    cv::imshow("Depth", depthColor);
+    // // plot depth image
+    // double minVal, maxVal;
+    // cv::minMaxLoc(depthMap, &minVal, &maxVal);
+    // cout << "Max depth: " << maxVal << ", Min depth: " << minVal << endl;
+    // // cv::Mat depthViz = sparseDepthMap.clone() * 255.0 / maxVal;
+    // cv::Mat depthViz = depthMap.clone() * 255.0 / maxVal;
+    // depthViz.convertTo(depthViz, CV_8U);
+    // cv::Mat depthColor;
+    // cv::applyColorMap(depthViz, depthColor, cv::COLORMAP_JET);
+    // cv::namedWindow("Depth", cv::WINDOW_NORMAL);
+    // cv::imshow("Depth", depthColor);
 
-    cv::namedWindow("Image", cv::WINDOW_NORMAL);
-    cv::imshow("Image", im1);
-    cv::waitKey(0);
+    // cv::namedWindow("Image", cv::WINDOW_NORMAL);
+    // cv::imshow("Image", im1);
+    // cv::waitKey(0);
 
   	return inliers.size();
   }
@@ -251,14 +253,14 @@ namespace depthpipe
     cv::Mat row;
     for (int32_t i=0; i<siftdata1.numPts; i++) {
       kpts1.push_back(cv::KeyPoint(sift1[i].xpos, sift1[i].ypos, sift1[i].scale, sift1[i].orientation, 1, (int32_t)log2(sift1[i].subsampling)));
-      // int32_t octave = (int32_t)log2(sift1c[i].subsampling);
+      // int32_t octave = (int32_t)log2(sift1[i].subsampling);
       row = desc1.row(i);
       std::memcpy(row.data, sift1[i].data, 128*sizeof(float));
     }
 
     for (int32_t i=0; i<siftdata2.numPts; i++) {
       kpts2.push_back(cv::KeyPoint(sift2[i].xpos, sift2[i].ypos, sift2[i].scale, sift2[i].orientation, 1, (int32_t)log2(sift2[i].subsampling)));
-      // int32_t octave = (int32_t)log2(sift1c[i].subsampling);
+      // int32_t octave = (int32_t)log2(sift2[i].subsampling);
       row = desc2.row(i);
       std::memcpy(row.data, sift2[i].data, 128*sizeof(float));
     }

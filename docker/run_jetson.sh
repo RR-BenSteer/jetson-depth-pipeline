@@ -15,8 +15,8 @@ docker run --rm -it \
 	-v ~/.docker_bash_history:/home/admin/.bash_history:rw \
 	-v ~/.tmux.conf:/home/admin/.tmux.conf \
 	-v /home/admin/workspace/data:/data:ro \
-	-v $PWD/../:/knfu_slam:rw \
-	-w /knfu_slam \
-	--name knfu_slam \
-	gidobot:knfu_slam_humble \
+	-v $PWD/../:/jetson-depth:rw \
+	-w /jetson-depth \
+	--name jetson-depth \
+	gidobot:jetson_depth \
 	bash
