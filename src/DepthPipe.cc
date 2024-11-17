@@ -27,6 +27,26 @@ namespace depthpipe
     FreeSiftData(siftdata_2);
   }
 
+  void DepthPipe::process(const cv::Mat &im, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask, cv::Mat &depthMap)
+  {
+    cv::Mat relDepthMap;
+    depthanything_cls->compute(im, relDepthMap);
+
+    // compute metric depth by scale and shift
+    ArrayXXf estimate = Map<ArrayXXf>(relDepthMap.ptr<float>(), relDepthMap.rows, relDepthMap.cols);
+    ArrayXXf target   = Map<ArrayXXf>(sparseDepthMap.ptr<float>(), sparseDepthMap.rows, sparseDepthMap.cols);
+    ArrayXXf valid    = Map<ArrayXXf>(sparseDepthMask.ptr<float>(), sparseDepthMask.rows, sparseDepthMask.cols);
+
+    LeastSquaresEstimator estimator(estimate, target, valid);
+    estimator.compute_scale_and_shift();
+    estimator.apply_scale_and_shift();
+    estimator.clamp_min_max(min_depth, max_depth, true);
+
+    ArrayXXf output = estimator.get_output();
+    output = output.inverse(); // invert to metric depth
+    depthMap = cv::Mat(output.rows(), output.cols(), CV_32F, const_cast<float*>(output.data())).clone();
+  }
+
   float DepthPipe::process(const cv::Mat &im1, const cv::Mat &im2, cv::Mat &depthMap)
   {
     time_point t1 = std::chrono::steady_clock::now();

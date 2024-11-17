@@ -27,8 +27,6 @@ Model::Model(const string &engine_path) {
     std::array<float, 3> subVals{0.485f, 0.456f, 0.406f};
     std::array<float, 3> divVals{0.229f, 0.224f, 0.225f};
     bool normalize = true;
-    // Note, we could have also used the default values.
-
     // If the model requires values to be normalized between [-1.f, 1.f], use the
     // following params:
     //    subVals = {0.5f, 0.5f, 0.5f};
@@ -46,14 +44,6 @@ Model::Model(const string &engine_path) {
     } else {
         throw std::runtime_error("TensorRT engine path is empty.");
     }
-
-    // } else {
-    //     // Load the TensorRT engine file directly
-    //     bool succ = engine.loadNetwork(arguments.trtModelPath, subVals, divVals, normalize);
-    //     if (!succ) {
-    //         throw std::runtime_error("Unable to load TensorRT engine.");
-    //     }
-    // }
 }
 
 Model::~Model() {
@@ -88,15 +78,9 @@ void Model::run(const cv::Mat &cpuImg, cv::Mat &depth){
     //            cv::cuda::resize(img, resized, cv::Size(inputDim.d[2],
     //            inputDim.d[1])); // TRT dims are (height, width) whereas
     //            OpenCV is (width, height)
+
     input1.emplace_back(std::move(resized));
-
     inputs.emplace_back(std::move(input1));
-
-    // cout << "Batch size: " << inputTensor.size[0] << endl;
-    // cout << "Channels: " << inputTensor.size[3] << endl;
-    // cout << "rows: " << inputTensor.size[1] << endl;
-    // cout << "cols: " << inputTensor.size[2] << endl;
-
 
     bool succ = _engine->runInference(inputs, depth);
     if (!succ) {

@@ -104,3 +104,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples)
 
 add_executable(lizard_test Examples/lizard_test.cc)
 target_link_libraries(lizard_test ${PROJECT_NAME})
+
+add_executable(flsea_test Examples/flsea_test.cc)
+target_link_libraries(flsea_test ${PROJECT_NAME})

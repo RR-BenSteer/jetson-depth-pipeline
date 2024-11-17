@@ -40,6 +40,7 @@ public:
   ~DepthPipe();
 
   float process(const cv::Mat &im1, const cv::Mat &im2, cv::Mat &depthMap);
+  void process(const cv::Mat &im, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask, cv::Mat &depthMap);
 
 private:
   void computeFeaturesCUDA(const cv::Mat& I1, const cv::Mat& I2,

@@ -1,0 +1,14 @@
+%YAML:1.0
+
+Stereo.f: 0.0
+Stereo.cx: 0.0
+Stereo.cy: 0.0
+Stereo.baseline: 0.0
+
+Extractor.nFeatures: 200
+
+Matcher.match_disp_tolerance: 1.0
+
+Depth.min: 0.1
+Depth.max: 10.0
+Depth.model: /jetson-depth/models/depth_anything_v2_vits.onnx

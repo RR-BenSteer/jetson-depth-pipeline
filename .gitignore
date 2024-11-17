@@ -1,5 +1,6 @@
 *.engine.*
 
 Examples/lizard_test
+Examples/flsea_test
 build/
 lib/
