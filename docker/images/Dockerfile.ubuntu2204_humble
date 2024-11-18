@@ -1,5 +1,3 @@
-# Start with NVIDIA's official Ubuntu 22.04 image with CUDA support
-# FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
 FROM nvidia/cuda:12.0.0-cudnn8-devel-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -141,14 +139,6 @@ RUN pip install --upgrade setuptools packaging
 RUN apt-get update && apt-get install -y \
     ros-humble-robot-localization
 
-# Note it is easier to just build and edit for errors locally
-# and point to mounted python files in docker
-# ACFR LCM Types Python Package
-# ADD thirdparty/acfr-lcm-types /tmp/acfr-lcm-types
-# WORKDIR /tmp/acfr-lcm-types
-# RUN python3 setup.py build
-# RUN pip install .
-
 # COPY entrypoints/ros_humble_entrypoint.sh /ros_entrypoint.sh
 
 # Source ROS 2 setup in the bashrc file
@@ -160,7 +150,7 @@ RUN apt-get update && apt-get install -y wget \
     && wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb \
     && dpkg -i cuda-keyring_1.0-1_all.deb
 
-# Install TensorRT
+# Install TensorRT version matching cudnn
 RUN apt-get update && apt-get install -y \
     libnvinfer-headers-dev=8.6.1.6-1+cuda12.0 \
     libnvinfer8=8.6.1.6-1+cuda12.0 \
