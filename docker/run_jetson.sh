@@ -18,5 +18,5 @@ docker run --rm -it \
 	-v $PWD/../:/jetson-depth:rw \
 	-w /jetson-depth \
 	--name jetson-depth \
-	gidobot:jetson_depth \
+	gidobot:isaac_ros_jetson_xavier_nx_latest \
 	bash

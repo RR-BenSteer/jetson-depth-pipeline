@@ -7,27 +7,21 @@ ENDIF()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -g -O3 -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g  -O3 -march=native")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -msse2 ")
 list(APPEND CUDA_NVCC_FLAGS "-lineinfo;-ccbin;/usr/bin/gcc;--compiler-options;-O2;-D_FORCE_INLINES;-DVERBOSE_NOT") 
 
-# Check C++17 or C++14 or C++0x support
-include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
-CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
-if(COMPILER_SUPPORTS_CXX17)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-   add_definitions(-DCOMPILEDWITHC17)
-   message(STATUS "Using flag -std=c++17.")
-elseif(COMPILER_SUPPORTS_CXX14)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-   add_definitions(-DCOMPILEDWITHC14)
-   message(STATUS "Using flag -std=c++14.")
-else()
-   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 or C++14 support. Please use a different C++ compiler.")
-endif()
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    message(STATUS "Building for an ARM architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+    if (NOT TensorRT_DIR)
+        set(TensorRT_DIR /usr/src/tensorrt)
+        # set(TensorRT_DIR /usr/lib/x86_64-linux-gnu)
+    endif()
+    # Use the correct version of CUDA
+    set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda)
+endif ()
 
 find_package(CUDA REQUIRED)
 if(NOT CUDA_FOUND)
@@ -41,11 +35,15 @@ message(STATUS "CUDA include dirs ${CUDA_INCLUDE_DIRS}")
 # set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-lineinfo") # Enable line info for debugging
 
 # Automatically detect and set CUDA architecture
-include(FindCUDA)
-cuda_select_nvcc_arch_flags(ARCH_FLAGS)
-message(STATUS "Setting CUDA arch to ${ARCH_FLAGS}.")
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${ARCH_FLAGS}")
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-O3")
+set(CMAKE_CUDA_ARCHITECTURES "")
+# Fallback architectures if auto-detection fails
+if(NOT CMAKE_CUDA_ARCHITECTURES)
+    message(WARNING "CUDA architectures not detected, using fallback.")
+    set(CMAKE_CUDA_ARCHITECTURES 72)
+endif()
+message(STATUS "Setting CUDA arch to ${CMAKE_CUDA_ARCHITECTURES}.")
+#set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${ARCH_FLAGS}")
+#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-O3")
 
 
 find_package(OpenCV REQUIRED)
