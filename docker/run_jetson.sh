@@ -14,7 +14,7 @@ docker run --rm -it \
 	-v /run/jtop.sock:/run/jtop.sock:rw \
 	-v ~/.docker_bash_history:/home/admin/.bash_history:rw \
 	-v ~/.tmux.conf:/home/admin/.tmux.conf \
-	-v /home/admin/workspace/data:/data:ro \
+	-v $HOME/workspace/data:/data:ro \
 	-v $PWD/../:/jetson-depth:rw \
 	-w /jetson-depth \
 	--name jetson-depth \
