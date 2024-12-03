@@ -105,3 +105,6 @@ target_link_libraries(lizard_test ${PROJECT_NAME})
 
 add_executable(flsea_test Examples/flsea_test.cc)
 target_link_libraries(flsea_test ${PROJECT_NAME})
+
+add_executable(test_engine Examples/test_engine.cc)
+target_link_libraries(test_engine ${PROJECT_NAME})

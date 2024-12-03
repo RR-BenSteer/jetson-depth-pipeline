@@ -8,6 +8,7 @@ Model::Model(const string &engine_path) {
     // Specify our GPU inference configuration options
     // Specify what precision to use for inference
     // FP16 is approximately twice as fast as FP32.
+    // _options.precision = Precision::FP32;
     _options.precision = Precision::FP16;
     // If using INT8 precision, must specify path to directory containing
     // calibration data.

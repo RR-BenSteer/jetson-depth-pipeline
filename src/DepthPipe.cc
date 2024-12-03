@@ -10,11 +10,12 @@ namespace depthpipe
       focal_length  = (*f_settings)["Stereo.f"].real();
       baseline      = (*f_settings)["Stereo.baseline"].real();
       n_features    = (*f_settings)["Extractor.nFeatures"].operator int();
+      sift_max_dim  = (*f_settings)["Extractor.maxDim"].operator int();
       min_depth     = (*f_settings)["Depth.min"].real();
       max_depth     = (*f_settings)["Depth.max"].real();
 
       // CudaSift init
-      InitCuda(0);
+      // InitCuda(0);
       InitSiftData(siftdata_1, n_features, true, true);
       InitSiftData(siftdata_2, n_features, true, true);
 
@@ -55,12 +56,12 @@ namespace depthpipe
   	std::vector<cv::KeyPoint> kpts1, kpts2;
   	cv::Mat desc1, desc2;
   	computeFeaturesCUDA(im1, im2, kpts1, desc1, kpts2, desc2);
-      time_point t2 = std::chrono::steady_clock::now();
+    time_point t2 = std::chrono::steady_clock::now();
 
   	// match features
   	std::vector<cv::DMatch> matches;
   	matchCUDA(kpts1, desc1, kpts2, desc2, matches, 0.95, true);
-      time_point t3 = std::chrono::steady_clock::now();
+    time_point t3 = std::chrono::steady_clock::now();
 
   	// find inliers
   	std::vector<cv::DMatch> inliers;
@@ -78,6 +79,7 @@ namespace depthpipe
     // compute relative depth
     cv::Mat relDepthMap;
     depthanything_cls->compute(im1, relDepthMap);
+    depthMap = relDepthMap;
     time_point t5 = std::chrono::steady_clock::now();
 
     // compute sparse depth prior map and mask
@@ -123,21 +125,21 @@ namespace depthpipe
     cout << "Total time: " << ttot << endl;
     cout << "extract: " << text << ", match: " << tmatch << ", filter: " << tfilt << ", relative depth: " << tdepth << ", metric depth: " << tdepthmetric << endl;
 
-    // // plot depth image
-    // double minVal, maxVal;
-    // cv::minMaxLoc(depthMap, &minVal, &maxVal);
-    // cout << "Max depth: " << maxVal << ", Min depth: " << minVal << endl;
-    // // cv::Mat depthViz = sparseDepthMap.clone() * 255.0 / maxVal;
-    // cv::Mat depthViz = depthMap.clone() * 255.0 / maxVal;
-    // depthViz.convertTo(depthViz, CV_8U);
-    // cv::Mat depthColor;
-    // cv::applyColorMap(depthViz, depthColor, cv::COLORMAP_JET);
-    // cv::namedWindow("Depth", cv::WINDOW_NORMAL);
-    // cv::imshow("Depth", depthColor);
+    // // // plot depth image
+    // // double minVal, maxVal;
+    // // cv::minMaxLoc(depthMap, &minVal, &maxVal);
+    // // cout << "Max depth: " << maxVal << ", Min depth: " << minVal << endl;
+    // // // cv::Mat depthViz = sparseDepthMap.clone() * 255.0 / maxVal;
+    // // cv::Mat depthViz = depthMap.clone() * 255.0 / maxVal;
+    // // depthViz.convertTo(depthViz, CV_8U);
+    // // cv::Mat depthColor;
+    // // cv::applyColorMap(depthViz, depthColor, cv::COLORMAP_JET);
+    // // cv::namedWindow("Depth", cv::WINDOW_NORMAL);
+    // // cv::imshow("Depth", depthColor);
 
-    // cv::namedWindow("Image", cv::WINDOW_NORMAL);
-    // cv::imshow("Image", im1);
-    // cv::waitKey(0);
+    // // cv::namedWindow("Image", cv::WINDOW_NORMAL);
+    // // cv::imshow("Image", im1);
+    // // cv::waitKey(0);
 
   	return inliers.size();
   }
@@ -226,6 +228,13 @@ namespace depthpipe
     gI1.convertTo(gI1, CV_32FC1);
     gI2.convertTo(gI2, CV_32FC1);
 
+    float scale = std::min(float(sift_max_dim)/float(gI1.cols), float(sift_max_dim)/float(gI1.rows));
+    if (scale >= 1.0) scale = 1.0;
+    else {
+      cv::resize(gI1, gI1, cv::Size(), scale, scale, cv::INTER_LINEAR);
+      cv::resize(gI2, gI2, cv::Size(), scale, scale, cv::INTER_LINEAR);
+    }
+
     // float initBlur = 1.6f;
     // float thresh = 1.2f; // for stereo
     // float thresh = 1.0f; // for hybrid
@@ -243,11 +252,11 @@ namespace depthpipe
     float *memoryTmpCUDA = AllocSiftTempMemory(I1.cols, I1.rows, 5, true);
     // float *memoryTmpCUDA = AllocSiftTempMemory(I1.cols, I1.rows, 5, false);
     // ExtractSift(siftdata_1, img1, 5, initBlur, thresh, 0.0f, false, memoryTmpCUDA);
-    ExtractSift(siftdata_1, img1, 5, initBlur, thresh, 0.0f, true, memoryTmpCUDA);
+    ExtractSift(siftdata_1, img1, 5, initBlur, thresh, 0.0f, true, memoryTmpCUDA, 1.0f/scale);
 
     // memoryTmpCUDA = AllocSiftTempMemory(I2.cols, I2.rows, 5, false);
     // ExtractSift(siftdata_2, img2, 5, initBlur, thresh, 0.0f, false, memoryTmpCUDA);
-    ExtractSift(siftdata_2, img2, 5, initBlur, thresh, 0.0f, true, memoryTmpCUDA);
+    ExtractSift(siftdata_2, img2, 5, initBlur, thresh, 0.0f, true, memoryTmpCUDA, 1.0f/scale);
 
     FreeSiftTempMemory(memoryTmpCUDA);
 

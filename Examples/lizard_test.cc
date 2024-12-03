@@ -85,28 +85,28 @@ int main(int argc, char **argv)
         cout << "RMSE: " << rmse << endl;
 
         // plot images
-        double minVal, maxVal;
-        cv::minMaxLoc(depthMap, &minVal, &maxVal);
-        // cout << "Max pred depth: " << maxVal << ", Min pred depth: " << minVal << endl;
-        cv::Mat depthViz = depthMap.clone() * 255.0 / 3.0;
-        depthViz.convertTo(depthViz, CV_8U);
-        cv::Mat depthColor;
-        cv::applyColorMap(depthViz, depthColor, cv::COLORMAP_JET);
-        cv::namedWindow("Pred Depth", cv::WINDOW_NORMAL);
-        cv::imshow("Pred Depth", depthColor);
+        // double minVal, maxVal;
+        // cv::minMaxLoc(depthMap, &minVal, &maxVal);
+        // // cout << "Max pred depth: " << maxVal << ", Min pred depth: " << minVal << endl;
+        // cv::Mat depthViz = depthMap.clone() * 255.0 / 3.0;
+        // depthViz.convertTo(depthViz, CV_8U);
+        // cv::Mat depthColor;
+        // cv::applyColorMap(depthViz, depthColor, cv::COLORMAP_JET);
+        // cv::namedWindow("Pred Depth", cv::WINDOW_NORMAL);
+        // cv::imshow("Pred Depth", depthColor);
 
-        cv::minMaxLoc(gtDepth, &minVal, &maxVal);
-        // cout << "Max gt depth: " << maxVal << ", Min gt depth: " << minVal << endl;
-        cv::Mat depthViz2 = gtDepth.clone() * 255.0 / 3.0;
-        depthViz2.convertTo(depthViz2, CV_8U);
-        cv::Mat depthColor2;
-        cv::applyColorMap(depthViz2, depthColor2, cv::COLORMAP_JET);
-        cv::namedWindow("GT Depth", cv::WINDOW_NORMAL);
-        cv::imshow("GT Depth", depthColor2);
+        // cv::minMaxLoc(gtDepth, &minVal, &maxVal);
+        // // cout << "Max gt depth: " << maxVal << ", Min gt depth: " << minVal << endl;
+        // cv::Mat depthViz2 = gtDepth.clone() * 255.0 / 3.0;
+        // depthViz2.convertTo(depthViz2, CV_8U);
+        // cv::Mat depthColor2;
+        // cv::applyColorMap(depthViz2, depthColor2, cv::COLORMAP_JET);
+        // cv::namedWindow("GT Depth", cv::WINDOW_NORMAL);
+        // cv::imshow("GT Depth", depthColor2);
 
-        cv::namedWindow("Image", cv::WINDOW_NORMAL);
-        cv::imshow("Image", imLeft);
-        cv::waitKey(0);
+        // cv::namedWindow("Image", cv::WINDOW_NORMAL);
+        // cv::imshow("Image", imLeft);
+        // cv::waitKey(0);
     }
 
     return 0;

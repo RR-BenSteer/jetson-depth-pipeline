@@ -72,6 +72,7 @@ private:
   float baseline;
   float min_depth;
   float max_depth;
+  int sift_max_dim;
 
   std::shared_ptr<cv::FileStorage> f_settings;
 
