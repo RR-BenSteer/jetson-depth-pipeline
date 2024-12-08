@@ -81,9 +81,6 @@ set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 file(GLOB SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc" "${PROJECT_SOURCE_DIR}/src/*.cu")
 cuda_add_library(${PROJECT_NAME} SHARED
    ${SOURCE_FILES}
-#    src/DepthPipe.cc
-#    src/DepthAnything.cc
-#    src/model.cc
 )
 
 find_package(Threads REQUIRED)

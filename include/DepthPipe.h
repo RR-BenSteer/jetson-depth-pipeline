@@ -67,8 +67,6 @@ private:
   void undistortFisheye(std::vector<cv::Point2d> &points);
   void undistortPerspective(std::vector<cv::Point2d> &points);
 
-  void testScaleAndShift(cv::Mat &relDepthMap, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask);
-
   std::vector<double> toQuaternion(const cv::Mat &M);
   Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);
 

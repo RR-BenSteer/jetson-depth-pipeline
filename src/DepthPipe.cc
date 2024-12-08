@@ -30,22 +30,26 @@ namespace depthpipe
 
   void DepthPipe::process(const cv::Mat &im, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask, cv::Mat &depthMap)
   {
-    // cv::Mat relDepthMap;
-    // depthanything_cls->compute(im, relDepthMap);
+    cv::Mat relDepthMap;
+    depthanything_cls->compute(im, relDepthMap);
 
-    // // compute metric depth by scale and shift
-    // ArrayXXf estimate = Map<ArrayXXf>(relDepthMap.ptr<float>(), relDepthMap.rows, relDepthMap.cols);
-    // ArrayXXf target   = Map<ArrayXXf>(sparseDepthMap.ptr<float>(), sparseDepthMap.rows, sparseDepthMap.cols);
-    // ArrayXXf valid    = Map<ArrayXXf>(sparseDepthMask.ptr<float>(), sparseDepthMask.rows, sparseDepthMask.cols);
+    LeastSquaresEstimator estimator(relDepthMap.ptr<float>(), sparseDepthMap.ptr<float>(), sparseDepthMask.ptr<float>(),
+        relDepthMap.rows, relDepthMap.cols);
+    estimator.compute_scale_and_shift();
 
-    // LeastSquaresEstimator estimator(estimate, target, valid);
-    // estimator.compute_scale_and_shift();
-    // estimator.apply_scale_and_shift();
-    // estimator.clamp_min_max(min_depth, max_depth, true);
+    cv::cuda::GpuMat relDepthMapGpu, scaledGpu;
+    relDepthMapGpu.upload(relDepthMap);
+    scaledGpu.create(relDepthMapGpu.size(), relDepthMapGpu.type());
+    float scale = estimator.get_scale();
+    float shift = estimator.get_shift();
+    cv::cuda::addWeighted(relDepthMapGpu, scale, relDepthMapGpu, 0.0, shift, scaledGpu);
 
-    // ArrayXXf output = estimator.get_output();
-    // output = output.inverse(); // invert to metric depth
-    // depthMap = cv::Mat(output.rows(), output.cols(), CV_32F, const_cast<float*>(output.data())).clone();
+    estimator.clamp_min_max(scaledGpu, min_depth, max_depth, true);
+
+    cv::cuda::GpuMat ones(scaledGpu.size(), scaledGpu.type(), cv::Scalar(1.0));
+    cv::cuda::GpuMat depthMapGpu(scaledGpu.size(), scaledGpu.type());
+    cv::cuda::divide(ones, scaledGpu, depthMapGpu);
+    depthMapGpu.download(depthMap);
   }
 
   float DepthPipe::process(const cv::Mat &im1, const cv::Mat &im2, cv::Mat &depthMap)
@@ -125,47 +129,6 @@ namespace depthpipe
   }
 
 
-  void DepthPipe::testScaleAndShift(cv::Mat &relDepthMap, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask)
-  {
-    // compute metric depth by scale and shift
-    Eigen::ArrayXXf estimate = Eigen::Map<Eigen::ArrayXXf>(relDepthMap.ptr<float>(), relDepthMap.rows, relDepthMap.cols);
-    Eigen::ArrayXXf target   = Eigen::Map<Eigen::ArrayXXf>(sparseDepthMap.ptr<float>(), sparseDepthMap.rows, sparseDepthMap.cols);
-    Eigen::ArrayXXf valid    = Eigen::Map<Eigen::ArrayXXf>(sparseDepthMask.ptr<float>(), sparseDepthMask.rows, sparseDepthMask.cols);
-
-    float a_00 = (valid * estimate * estimate).sum();
-    float a_01 = (valid * estimate).sum();
-    float a_11 = valid.sum();
-
-    float b_0 = (valid * estimate * target).sum();
-    float b_1 = (valid * target).sum();
-    // cout << "b_0: " << b_0 << endl;
-    // cout << "b_1: " << b_1 << endl;
-
-    cout << "a_00: " << a_00 << ", a_01: " << a_01 << ", a_11: " << a_11 << ", b_0: " << b_0 << ", b_1: " << b_1 << endl;
-
-    float x_0 = 0.0;
-    float x_1 = 0.0;
-
-    float scale, shift;
-    // Calculate determinant
-    float det = a_00 * a_11 - a_01 * a_01;
-    if (det <= 0) {
-        cout << "Matrix not positive definite. Not scaling depth." << endl;
-        scale = 1.0;
-        shift = 0.0;
-        return;
-    }
-
-    // Scale and shift computation
-    x_0 = (a_11 * b_0 - a_01 * b_1) / det;
-    x_1 = (-a_01 * b_0 + a_00 * b_1) / det;
-
-    scale = x_0;
-    shift = x_1;
-
-    cout << "scale: " << scale << ", shift: " << shift << endl;
-  }
-
   void DepthPipe::computeMetricGlobalScaleAndShift(cv::Mat &relDepthMap, cv::Mat &depthMap,
     std::vector<cv::KeyPoint> &kpts1, std::vector<cv::KeyPoint> &kpts2, std::vector<cv::DMatch> &inliers)
   {
@@ -182,14 +145,6 @@ namespace depthpipe
 
     time_point t2 = std::chrono::steady_clock::now();
 
-    // compute metric depth by scale and shift
-    // Eigen::ArrayXXf estimate = Eigen::Map<Eigen::ArrayXXf>(relDepthMap.ptr<float>(), relDepthMap.rows, relDepthMap.cols);
-    // Eigen::ArrayXXf target   = Eigen::Map<Eigen::ArrayXXf>(sparseDepthMap.ptr<float>(), sparseDepthMap.rows, sparseDepthMap.cols);
-    // Eigen::ArrayXXf valid    = Eigen::Map<Eigen::ArrayXXf>(sparseDepthMask.ptr<float>(), sparseDepthMask.rows, sparseDepthMask.cols);
-
-    // testScaleAndShift(relDepthMap, sparseDepthMap, sparseDepthMask);
-
-    // LeastSquaresEstimator estimator(estimate, target, valid);
     LeastSquaresEstimator estimator(relDepthMap.ptr<float>(), sparseDepthMap.ptr<float>(), sparseDepthMask.ptr<float>(),
         relDepthMap.rows, relDepthMap.cols);
     estimator.compute_scale_and_shift();
@@ -205,46 +160,33 @@ namespace depthpipe
 
     cv::cuda::addWeighted(relDepthMapGpu, scale, relDepthMapGpu, 0.0, shift, scaledGpu);
 
-    // estimator.apply_scale_and_shift(output);
-
     time_point t4 = std::chrono::steady_clock::now();
 
     estimator.clamp_min_max(scaledGpu, min_depth, max_depth, true);
-    // Apply minimum threshold
-    // cv::cuda::threshold(scaledGpu, scaleGpu, min_depth, min_depth, cv::THRESH_TOZERO);
-    // cv::cuda::threshold(scaledGpu, scaleGpu, 1.0f/min_depth, 1.0f/min_depth, cv::THRESH_TRUNC);
-    // Apply maximum threshold
-    // cv::cuda::threshold(scaleGpu, scaleGpu, max_depth, max_depth, cv::THRESH_TRUNC);
-    // cv::cuda::threshold(scaleGpu, scaleGpu, 1.0f/max_depth, 1.0f/max_depth, cv::THRESH_TOZERO);
-
 
     time_point t5 = std::chrono::steady_clock::now();
 
     cv::cuda::GpuMat ones(scaledGpu.size(), scaledGpu.type(), cv::Scalar(1.0));
     cv::cuda::GpuMat depthMapGpu(scaledGpu.size(), scaledGpu.type());
     cv::cuda::divide(ones, scaledGpu, depthMapGpu);
-
-    // ArrayXXf output = estimator.get_output();
-    // output = output.inverse(); // invert to metric depth
-    // depthMap = cv::Mat(output.rows(), output.cols(), CV_32F, const_cast<float*>(output.data())).clone();
     depthMapGpu.download(depthMap);
 
     time_point t6 = std::chrono::steady_clock::now();
 
-    // // performance timers
-    // double tsps = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
-    // double test = std::chrono::duration_cast<std::chrono::duration<double>>(t3 - t2).count();
-    // double tapp = std::chrono::duration_cast<std::chrono::duration<double>>(t4 - t3).count();
-    // double tclp = std::chrono::duration_cast<std::chrono::duration<double>>(t5 - t4).count();
-    // double tout = std::chrono::duration_cast<std::chrono::duration<double>>(t6 - t5).count();
-    // double ttot = std::chrono::duration_cast<std::chrono::duration<double>>(t6 - t1).count();
+    // performance timers
+    double tsps = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+    double test = std::chrono::duration_cast<std::chrono::duration<double>>(t3 - t2).count();
+    double tapp = std::chrono::duration_cast<std::chrono::duration<double>>(t4 - t3).count();
+    double tclp = std::chrono::duration_cast<std::chrono::duration<double>>(t5 - t4).count();
+    double tout = std::chrono::duration_cast<std::chrono::duration<double>>(t6 - t5).count();
+    double ttot = std::chrono::duration_cast<std::chrono::duration<double>>(t6 - t1).count();
 
-    // cout << "computeMetricGlobalScaleAndShift Total time: " << ttot << endl
-    //      << "\tfill sparse depth: " << tsps << endl
-    //      << "\testimate scale and shift: " << test << endl
-    //      << "\tapply scale and shift: " << tapp << endl
-    //      << "\tclamp min and max: " << tclp << endl
-    //      << "\tconvert to dense depth: " << tout << endl;
+    cout << "computeMetricGlobalScaleAndShift Total time: " << ttot << endl
+         << "\tfill sparse depth: " << tsps << endl
+         << "\testimate scale and shift: " << test << endl
+         << "\tapply scale and shift: " << tapp << endl
+         << "\tclamp min and max: " << tclp << endl
+         << "\tconvert to dense depth: " << tout << endl;
   }
 
   int DepthPipe::fillSparseDepthMap(const std::vector<cv::KeyPoint> &kpts_left, const std::vector<cv::KeyPoint> &kpts_right,
@@ -312,15 +254,11 @@ namespace depthpipe
     {
         if(isRGB)
         {
-            // cvtColor(I1,gI1,cv::COLOR_RGB2GRAY);
-            // cvtColor(I2,gI2,cv::COLOR_RGB2GRAY);
             cv::cuda::cvtColor(gpuImg1, gpuGreyImg1, cv::COLOR_RGB2GRAY);
             cv::cuda::cvtColor(gpuImg2, gpuGreyImg2, cv::COLOR_RGB2GRAY);
         }
         else
         {
-            // cvtColor(I1,gI1,cv::COLOR_BGR2GRAY);
-            // cvtColor(I2,gI2,cv::COLOR_BGR2GRAY);
             cv::cuda::cvtColor(gpuImg1, gpuGreyImg1, cv::COLOR_BGR2GRAY);
             cv::cuda::cvtColor(gpuImg2, gpuGreyImg2, cv::COLOR_BGR2GRAY);
         }
@@ -329,38 +267,24 @@ namespace depthpipe
     {
         if(isRGB)
         {
-            // cvtColor(I1,gI1,cv::COLOR_RGBA2GRAY);
-            // cvtColor(I2,gI2,cv::COLOR_RGBA2GRAY);
             cv::cuda::cvtColor(gpuImg1, gpuGreyImg1, cv::COLOR_RGBA2GRAY);
             cv::cuda::cvtColor(gpuImg2, gpuGreyImg2, cv::COLOR_RGBA2GRAY);
         }
         else
         {
-            // cvtColor(I1,gI1,cv::COLOR_BGRA2GRAY);
-            // cvtColor(I2,gI2,cv::COLOR_BGRA2GRAY);
             cv::cuda::cvtColor(gpuImg1, gpuGreyImg1, cv::COLOR_BGRA2GRAY);
             cv::cuda::cvtColor(gpuImg2, gpuGreyImg2, cv::COLOR_BGRA2GRAY);
         }
     }
 
-    // gI1.convertTo(gI1, CV_32FC1);
-    // gI2.convertTo(gI2, CV_32FC1);
-
-    // Perform the equivalent of convertTo on GPU
-    // cv::cuda::GpuMat tmp1, tmp2;
     gpuGreyImg1.convertTo(gpuGreyImg1, CV_32FC1);  // Type conversion
     gpuGreyImg2.convertTo(gpuGreyImg2, CV_32FC1);  // Type conversion
-    // cv::cuda::divide(gpuGreyImg1, 255.0, gpuGreyImg1);
-    // cv::cuda::divide(gpuGreyImg2, 255.0, gpuGreyImg2);
 
     time_point t2 = std::chrono::steady_clock::now();
 
-    // float scale = std::min(float(sift_max_dim)/float(gI1.cols), float(sift_max_dim)/float(gI1.rows));
     float scale = std::min(float(sift_max_dim)/float(gpuGreyImg1.cols), float(sift_max_dim)/float(gpuGreyImg2.rows));
     if (scale >= 1.0) scale = 1.0;
     else {
-      // cv::resize(gI1, gI1, cv::Size(), scale, scale, cv::INTER_LINEAR);
-      // cv::resize(gI2, gI2, cv::Size(), scale, scale, cv::INTER_LINEAR);
       cv::cuda::resize(gpuGreyImg1, gpuImgScaled1, cv::Size(), scale, scale, cv::INTER_LINEAR);
       cv::cuda::resize(gpuGreyImg2, gpuImgScaled2, cv::Size(), scale, scale, cv::INTER_LINEAR);
 
@@ -375,14 +299,8 @@ namespace depthpipe
     float thresh = 2.0f;
 
     CudaImage img1, img2;
-    // don't include memory allocation in timeing as this can in theory be done once
     img1.Allocate(gpuImgScaled1.cols, gpuImgScaled1.rows, gpuImgScaled1.step/sizeof(float), false, (float*)gpuImgScaled1.ptr<float>(0), NULL);
     img2.Allocate(gpuImgScaled2.cols, gpuImgScaled2.rows, gpuImgScaled2.step/sizeof(float), false, (float*)gpuImgScaled2.ptr<float>(0), NULL);
-    // img1.Allocate(gI1.cols, gI1.rows, iAlignUp(gI1.cols, 128), false, NULL, (float*)gI1.data);
-    // img2.Allocate(gI2.cols, gI2.rows, iAlignUp(gI2.cols, 128), false, NULL, (float*)gI2.data);
-
-    // img1.Download();
-    // img2.Download();
 
     time_point t4 = std::chrono::steady_clock::now();
 
@@ -576,11 +494,6 @@ namespace depthpipe
         inliers.push_back(matches[i]);
       }
     }
-
-    // compute rotation angles
-    // double ry = asin(R.at<double>(0,2));
-    // double rx = asin(-R.at<double>(1,2)/cos(ry));
-    // double rz = asin(-R.at<double>(0,1)/cos(ry));
 
     vector<double> q_delta = toQuaternion(R);
 
