@@ -98,6 +98,10 @@ RUN cd /tmp && git clone https://github.com/stevenlovegrove/Pangolin.git \
 RUN apt-get update -y && apt-get upgrade -y && apt install -y \
     libfmt-dev \
     nvidia-cuda \
+    nvidia-nsight-sys \
+    texinfo \
+    bison \
+    flex \
  && rm -rf /var/lib/apt/lists/*
 
 # Arguments for user creation (can be passed at build time)

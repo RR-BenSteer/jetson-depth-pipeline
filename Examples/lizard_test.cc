@@ -55,6 +55,7 @@ int main(int argc, char **argv)
     DepthPipe depthpipe(argv[1]);
 
     // Main loop
+    // for(int ni=0; ni<20; ni++)
     for(int ni=0; ni<nImages; ni++)
     {
         cout << "image " << ni << " of " << nImages << endl;   

@@ -59,10 +59,15 @@ private:
   int fillSparseDepthMap(const std::vector<cv::KeyPoint> &kpts_left, const std::vector<cv::KeyPoint> &kpts_right,
     const std::vector<cv::DMatch> &matches, cv::Mat &depth_map, cv::Mat &depth_mask, bool inverted=true);
 
+  void computeMetricGlobalScaleAndShift(cv::Mat &relDepthMap, cv::Mat &depthMap,
+    std::vector<cv::KeyPoint> &kpts1, std::vector<cv::KeyPoint> &kpts2, std::vector<cv::DMatch> &inliers);
+
   void plotPatches(SiftData &siftdata);
 
   void undistortFisheye(std::vector<cv::Point2d> &points);
   void undistortPerspective(std::vector<cv::Point2d> &points);
+
+  void testScaleAndShift(cv::Mat &relDepthMap, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask);
 
   std::vector<double> toQuaternion(const cv::Mat &M);
   Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);

@@ -16,6 +16,7 @@ docker run --rm -it \
 	-v ~/.tmux.conf:/home/admin/.tmux.conf \
 	-v $HOME/workspace/data:/data:ro \
 	-v $PWD/../:/jetson-depth:rw \
+	-v $HOME/workspace/binutils-gdb:/binutils-gdb:rw \
 	-w /jetson-depth \
 	--name jetson-depth \
 	gidobot:isaac_ros_jetson_xavier_nx_latest \

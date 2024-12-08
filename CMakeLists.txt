@@ -78,13 +78,15 @@ ${EIGEN3_INCLUDE_DIR}
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
-file(GLOB SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc")
-add_library(${PROJECT_NAME} SHARED
+file(GLOB SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cc" "${PROJECT_SOURCE_DIR}/src/*.cu")
+cuda_add_library(${PROJECT_NAME} SHARED
    ${SOURCE_FILES}
 #    src/DepthPipe.cc
 #    src/DepthAnything.cc
 #    src/model.cc
 )
+
+find_package(Threads REQUIRED)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -93,6 +95,7 @@ ${CUDA_cudadevrt_LIBRARY}
 ${CUDA_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/CudaSift/lib/libcudasift.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/tensorrt-cpp-api/lib/libtensorrt_cpp_api.so
+${CMAKE_THREAD_LIBS_INIT}
 fmt::fmt
 )
 
