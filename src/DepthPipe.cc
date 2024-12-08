@@ -54,24 +54,34 @@ namespace depthpipe
 
   float DepthPipe::process(const cv::Mat &im1, const cv::Mat &im2, cv::Mat &depthMap)
   {
+#ifdef PROFILE
     time_point t1 = std::chrono::steady_clock::now();
+#endif
 
   	// compute features
   	std::vector<cv::KeyPoint> kpts1, kpts2;
   	cv::Mat desc1, desc2;
   	computeFeaturesCUDA(im1, im2, kpts1, desc1, kpts2, desc2);
+
+#ifdef PROFILE
     time_point t2 = std::chrono::steady_clock::now();
+#endif
 
   	// match features
   	std::vector<cv::DMatch> matches;
   	matchCUDA(kpts1, desc1, kpts2, desc2, matches, 0.95, true);
+
+#ifdef PROFILE
     time_point t3 = std::chrono::steady_clock::now();
+#endif
 
   	// find inliers
   	std::vector<cv::DMatch> inliers;
   	std::vector<double> tr_delta = findInliers(kpts1, kpts2, matches, inliers, false, false);
 
+#ifdef PROFILE
     time_point t4 = std::chrono::steady_clock::now();
+#endif
 
     // debug matches
     // cv::Mat matchImg;
@@ -86,16 +96,14 @@ namespace depthpipe
     depthanything_cls->compute(im1, relDepthMap);
     depthMap = relDepthMap;
 
+#ifdef PROFILE
     time_point t5 = std::chrono::steady_clock::now();
+#endif
 
     computeMetricGlobalScaleAndShift(relDepthMap, depthMap, kpts1, kpts2, inliers);
 
+#ifdef PROFILE
     time_point t6 = std::chrono::steady_clock::now();
-
-    // debug error checking
-    // float error = (valid.select(output, 0.0f) - valid.select(target.inverse(), 0.0f)).abs().sum() / valid.sum(); // inverted depth
-    // float error = (valid.select(output, 0.0f) - valid.select(target, 0.0f)).abs().sum() / valid.sum();
-    // cout << "mean depth error: " << error << endl;
 
     // performance timers
     double text = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
@@ -108,6 +116,12 @@ namespace depthpipe
     cout << "Number of inliers: " << inliers.size() << endl;
     cout << "Total time: " << ttot << endl;
     cout << "extract: " << text << ", match: " << tmatch << ", filter: " << tfilt << ", relative depth: " << tdepth << ", metric depth: " << tdepthmetric << endl;
+#endif
+
+    // debug error checking
+    // float error = (valid.select(output, 0.0f) - valid.select(target.inverse(), 0.0f)).abs().sum() / valid.sum(); // inverted depth
+    // float error = (valid.select(output, 0.0f) - valid.select(target, 0.0f)).abs().sum() / valid.sum();
+    // cout << "mean depth error: " << error << endl;
 
     // // // plot depth image
     // // double minVal, maxVal;
@@ -132,7 +146,9 @@ namespace depthpipe
   void DepthPipe::computeMetricGlobalScaleAndShift(cv::Mat &relDepthMap, cv::Mat &depthMap,
     std::vector<cv::KeyPoint> &kpts1, std::vector<cv::KeyPoint> &kpts2, std::vector<cv::DMatch> &inliers)
   {
+#ifdef PROFILE
     time_point t1 = std::chrono::steady_clock::now();
+#endif
 
     // compute sparse depth prior map and mask
     cv::Mat sparseDepthMap = cv::Mat::zeros(relDepthMap.rows, relDepthMap.cols, CV_32F);
@@ -143,13 +159,17 @@ namespace depthpipe
       return;
     }
 
+#ifdef PROFILE
     time_point t2 = std::chrono::steady_clock::now();
+#endif
 
     LeastSquaresEstimator estimator(relDepthMap.ptr<float>(), sparseDepthMap.ptr<float>(), sparseDepthMask.ptr<float>(),
         relDepthMap.rows, relDepthMap.cols);
     estimator.compute_scale_and_shift();
 
+#ifdef PROFILE
     time_point t3 = std::chrono::steady_clock::now();
+#endif
 
     cv::cuda::GpuMat relDepthMapGpu, scaledGpu;
     relDepthMapGpu.upload(relDepthMap);
@@ -160,17 +180,22 @@ namespace depthpipe
 
     cv::cuda::addWeighted(relDepthMapGpu, scale, relDepthMapGpu, 0.0, shift, scaledGpu);
 
+#ifdef PROFILE
     time_point t4 = std::chrono::steady_clock::now();
+#endif
 
     estimator.clamp_min_max(scaledGpu, min_depth, max_depth, true);
 
+#ifdef PROFILE
     time_point t5 = std::chrono::steady_clock::now();
+#endif
 
     cv::cuda::GpuMat ones(scaledGpu.size(), scaledGpu.type(), cv::Scalar(1.0));
     cv::cuda::GpuMat depthMapGpu(scaledGpu.size(), scaledGpu.type());
     cv::cuda::divide(ones, scaledGpu, depthMapGpu);
     depthMapGpu.download(depthMap);
 
+#ifdef PROFILE
     time_point t6 = std::chrono::steady_clock::now();
 
     // performance timers
@@ -187,6 +212,8 @@ namespace depthpipe
          << "\tapply scale and shift: " << tapp << endl
          << "\tclamp min and max: " << tclp << endl
          << "\tconvert to dense depth: " << tout << endl;
+#endif
+
   }
 
   int DepthPipe::fillSparseDepthMap(const std::vector<cv::KeyPoint> &kpts_left, const std::vector<cv::KeyPoint> &kpts_right,
@@ -239,8 +266,9 @@ namespace depthpipe
   void DepthPipe::computeFeaturesCUDA(const cv::Mat& I1, const cv::Mat& I2,
     std::vector<cv::KeyPoint> &kpts1, cv::Mat &desc1, std::vector<cv::KeyPoint> &kpts2, cv::Mat &desc2)
   {
-
+#ifdef PROFILE
     time_point t1 = std::chrono::steady_clock::now();
+#endif
     // cv::Mat gI1, gI2;
 
     // Upload the color image to the GPU
@@ -280,7 +308,9 @@ namespace depthpipe
     gpuGreyImg1.convertTo(gpuGreyImg1, CV_32FC1);  // Type conversion
     gpuGreyImg2.convertTo(gpuGreyImg2, CV_32FC1);  // Type conversion
 
+#ifdef PROFILE
     time_point t2 = std::chrono::steady_clock::now();
+#endif
 
     float scale = std::min(float(sift_max_dim)/float(gpuGreyImg1.cols), float(sift_max_dim)/float(gpuGreyImg2.rows));
     if (scale >= 1.0) scale = 1.0;
@@ -290,7 +320,9 @@ namespace depthpipe
 
     }
 
+#ifdef PROFILE
     time_point t3 = std::chrono::steady_clock::now();
+#endif
 
     // float initBlur = 1.6f;
     // float thresh = 1.2f; // for stereo
@@ -302,7 +334,9 @@ namespace depthpipe
     img1.Allocate(gpuImgScaled1.cols, gpuImgScaled1.rows, gpuImgScaled1.step/sizeof(float), false, (float*)gpuImgScaled1.ptr<float>(0), NULL);
     img2.Allocate(gpuImgScaled2.cols, gpuImgScaled2.rows, gpuImgScaled2.step/sizeof(float), false, (float*)gpuImgScaled2.ptr<float>(0), NULL);
 
+#ifdef PROFILE
     time_point t4 = std::chrono::steady_clock::now();
+#endif
 
     float *memoryTmpCUDA = AllocSiftTempMemory(I1.cols, I1.rows, 5, true);
     // float *memoryTmpCUDA = AllocSiftTempMemory(I1.cols, I1.rows, 5, false);
@@ -315,10 +349,13 @@ namespace depthpipe
 
     FreeSiftTempMemory(memoryTmpCUDA);
 
+#ifdef PROFILE
     time_point t5 = std::chrono::steady_clock::now();
+#endif
 
     CUDAtoCV(siftdata_1, siftdata_2, kpts1, desc1, kpts2, desc2);
 
+#ifdef PROFILE
     time_point t6 = std::chrono::steady_clock::now();
 
     // performance timers
@@ -335,6 +372,8 @@ namespace depthpipe
          << "\tallocate gpu: " << tall << endl
          << "\textract feats: " << text << endl
          << "\tfeats to CV: " << t2cv << endl;
+#endif
+         
   }
 
   void DepthPipe::CUDAtoCV(SiftData &siftdata1, SiftData &siftdata2, std::vector<cv::KeyPoint> &kpts1, cv::Mat &desc1,

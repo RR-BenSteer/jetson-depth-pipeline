@@ -241,9 +241,6 @@ void readBinaryDepth(const std::string& path, cv::Mat &depth) {
     file.close();
 
     int total_elements = width * height * channels;
-    cout << "width: " << width << ", height: " << height << ", channels: " << channels << endl;
-    cout << "total elements: " << total_elements << endl;
-    cout << "data size: " << data.size() << endl;
     if (data.size() != total_elements) {
         throw std::runtime_error("Data size mismatch");
     }
