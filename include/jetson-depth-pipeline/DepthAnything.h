@@ -10,7 +10,7 @@
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
-#include "model.h"
+#include "jetson-depth-pipeline/model.h"
 #include <chrono>
 
 using namespace std;

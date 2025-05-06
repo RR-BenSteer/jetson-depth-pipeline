@@ -1,26 +1,55 @@
-#include "DepthPipe.h"
+#include "jetson-depth-pipeline/DepthPipe.h"
 
 using namespace std;
 
 namespace depthpipe
 {
+  DepthPipe::DepthPipe(const DepthPipeSettings &settings): focal_length(1), baseline(1)  {
+    init(settings);
+  }
 
   DepthPipe::DepthPipe(const string &str_setting_path) {
-      f_settings.reset(new cv::FileStorage(str_setting_path.c_str(), cv::FileStorage::READ));
-      focal_length  = (*f_settings)["Stereo.f"].real();
-      baseline      = (*f_settings)["Stereo.baseline"].real();
-      n_features    = (*f_settings)["Extractor.nFeatures"].operator int();
-      sift_max_dim  = (*f_settings)["Extractor.maxDim"].operator int();
-      min_depth     = (*f_settings)["Depth.min"].real();
-      max_depth     = (*f_settings)["Depth.max"].real();
+    cv::FileStorage f_settings (str_setting_path.c_str(), cv::FileStorage::READ);
+      
+    setCameraProperties(
+      f_settings["Stereo.f"].real(), // focal length
+      f_settings["Stereo.baseline"].real(), // baseline
+      f_settings["Stereo.cx"].real(), // cx
+      f_settings["Stereo.cy"].real() // cy
+    );
 
-      // CudaSift init
-      // InitCuda(0);
-      InitSiftData(siftdata_1, n_features, true, true);
-      InitSiftData(siftdata_2, n_features, true, true);
+    // parse general pipeline settings into struct
+    DepthPipeSettings settings;
+    settings.n_features = f_settings["Extractor.nFeatures"].operator int();
+    settings.sift_max_dim = f_settings["Extractor.maxDim"].operator int();
+    settings.min_depth = f_settings["Depth.min"].real();
+    settings.max_depth = f_settings["Depth.max"].real();
+    settings.model_path = f_settings["Depth.model"].string();
+    settings.match_disp_tolerance = f_settings["Matcher.match_disp_tolerance"].real();
 
-      // DepthAnything init
-      depthanything_cls = shared_ptr<DepthAnything>(new DepthAnything((*f_settings)["Depth.model"]));
+    init(settings);
+  }
+
+  void DepthPipe::init(const DepthPipeSettings &settings) {
+    n_features = settings.n_features;
+    sift_max_dim = settings.sift_max_dim;
+    min_depth = settings.min_depth;
+    max_depth = settings.max_depth;
+    match_disp_tolerance = settings.match_disp_tolerance;
+
+    // CudaSift init
+    // InitCuda(0);
+    InitSiftData(siftdata_1, n_features, true, true);
+    InitSiftData(siftdata_2, n_features, true, true);
+
+    // DepthAnything init
+    depthanything_cls = shared_ptr<DepthAnything>(new DepthAnything(settings.model_path));
+  }
+
+  void DepthPipe::setCameraProperties (float focalLength, float baseline, float cx, float cy) {
+    this->focal_length = focalLength;
+    this->baseline = baseline;
+    this->pp = cv::Point2d(cx, cy);
   }
 
   DepthPipe::~DepthPipe() {
@@ -313,11 +342,14 @@ namespace depthpipe
 #endif
 
     float scale = std::min(float(sift_max_dim)/float(gpuGreyImg1.cols), float(sift_max_dim)/float(gpuGreyImg2.rows));
-    if (scale >= 1.0) scale = 1.0;
+    if (scale >= 1.0) {
+      scale = 1.0;
+      gpuImgScaled1 = gpuGreyImg1;
+      gpuImgScaled2 = gpuGreyImg2;
+    }
     else {
       cv::cuda::resize(gpuGreyImg1, gpuImgScaled1, cv::Size(), scale, scale, cv::INTER_LINEAR);
       cv::cuda::resize(gpuGreyImg2, gpuImgScaled2, cv::Size(), scale, scale, cv::INTER_LINEAR);
-
     }
 
 #ifdef PROFILE
@@ -462,7 +494,7 @@ namespace depthpipe
       i2c = sift1[i1c].match;
 
       // check epipolar constraint
-      if (fabs(sift1[i1c].match_ypos - sift1[i1c].ypos) > (*f_settings)["Matcher.match_disp_tolerance"].real())
+      if (fabs(sift1[i1c].match_ypos - sift1[i1c].ypos) > match_disp_tolerance)
         continue;
       // filter negative disparities
       if (sift1[i1c].xpos<=sift2[i2c].xpos)
@@ -512,18 +544,16 @@ namespace depthpipe
     }
 
     // find essential matrix with 5-point algorithm
-    double focal = (*f_settings)["Stereo.f"].real();
-    cv::Point2d pp((*f_settings)["Stereo.cx"].real(),(*f_settings)["Stereo.cy"].real());
     float prob = 0.999;
     float thresh = 1.0; // projection error is measured by projection onto stereo
     int method = cv::RANSAC;
     cv::Mat mask;
-    cv::Mat essential_mat = cv::findEssentialMat(points1, points2, focal, pp, method, prob, thresh, mask);
+    cv::Mat essential_mat = cv::findEssentialMat(points1, points2, focal_length, pp, method, prob, thresh, mask);
 
     // recover motion from essential matrix
     cv::Mat t;
     cv::Mat R;
-    int num_inliers = cv::recoverPose(essential_mat, points1, points2, R, t, focal, pp, mask);
+    int num_inliers = cv::recoverPose(essential_mat, points1, points2, R, t, focal_length, pp, mask);
 
     // if (num_inliers < 10)
       // return vector<double>({0,0,0,0,0,0,0});

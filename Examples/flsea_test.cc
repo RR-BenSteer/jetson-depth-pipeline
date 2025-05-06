@@ -14,7 +14,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 
-#include "DepthPipe.h"
+#include "jetson-depth-pipeline/DepthPipe.h"
 
 namespace fs = std::filesystem;
 using namespace std;

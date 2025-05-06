@@ -16,28 +16,41 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 
-#include<Eigen/Dense>
+#include <Eigen/Dense>
 
 #include "cudaSift.h"
 #include "cudaImage.h"
 
-#include "DepthAnything.h"
-#include "estimator.h"
+#include "jetson-depth-pipeline/DepthAnything.h"
+#include "jetson-depth-pipeline/estimator.h"
 
 using namespace std;
 
 namespace depthpipe
 {
 
+struct DepthPipeSettings {
+  int n_features;
+  int sift_max_dim;
+  float min_depth;
+  float max_depth;
+  float match_disp_tolerance;
+  std::string model_path;
+};
+
 typedef std::chrono::steady_clock::time_point time_point;
 
 class DepthPipe
 {
 public:
+  DepthPipe(const DepthPipeSettings &settings);
   DepthPipe(const string &str_setting_path);
   DepthPipe() = delete; // no default constructor
 
   ~DepthPipe();
+
+  void init (const DepthPipeSettings &settings);
+  void setCameraProperties (float focalLength, float baseline, float cx, float cy);
 
   float process(const cv::Mat &im1, const cv::Mat &im2, cv::Mat &depthMap);
   void process(const cv::Mat &im, cv::Mat &sparseDepthMap, cv::Mat &sparseDepthMask, cv::Mat &depthMap);
@@ -70,14 +83,17 @@ private:
   std::vector<double> toQuaternion(const cv::Mat &M);
   Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);
 
+  // pipeline settings
   int n_features;
-  float focal_length;
-  float baseline;
+  int sift_max_dim;
   float min_depth;
   float max_depth;
-  int sift_max_dim;
+  float match_disp_tolerance;
 
-  std::shared_ptr<cv::FileStorage> f_settings;
+  // camera parameters
+  float focal_length;
+  cv::Point2d pp;
+  float baseline;
 
   SiftData siftdata_1;
   SiftData siftdata_2;

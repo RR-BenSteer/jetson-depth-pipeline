@@ -1,4 +1,4 @@
-#include "model.h"
+#include "jetson-depth-pipeline/model.h"
 
 using namespace std;
 
